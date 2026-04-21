@@ -3,558 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ID Scanner – Auto Fill</title>
+    <title>ID Scanner Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Manjari:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0e1117;
-            --surface: #161b27;
-            --card: #1e2534;
+            --bg: #0b0e14;
+            --surface: #151921;
+            --card: #1c222d;
             --border: rgba(255,255,255,0.08);
             --accent: #4ade80;
-            --accent2: #60a5fa;
-            --text: #e8eaf0;
-            --muted: rgba(232,234,240,0.45);
-            --red: #f87171;
+            --accent2: #3b82f6;
+            --text: #f0f2f5;
+            --muted: #94a3b8;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Manjari', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 12px; display: flex; flex-direction: column; align-items: center; }
 
-        body {
-            font-family: 'Manjari', sans-serif;
-            background: var(--bg);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 16px 12px 32px;
-            color: var(--text);
-        }
+        .app-header { width: 100%; max-width: 450px; padding: 20px 5px; text-align: left; }
+        .brand-text h1 { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--accent2); }
+        .brand-text p { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-        .header {
-            width: 100%;
-            max-width: 420px;
-            padding: 20px 0 12px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .logo {
-            width: 40px; height: 40px;
-            background: linear-gradient(135deg, #1d3557 0%, #457b9d 100%);
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            box-shadow: 0 0 20px rgba(96,165,250,0.25);
-        }
-        .header-text h1 {
-            font-family: 'DM Mono', monospace;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text);
-            letter-spacing: 0.03em;
-        }
-        .header-text p { font-size: 11px; color: var(--muted); margin-top: 2px; }
-        .ai-badge {
-            margin-left: auto;
-            background: rgba(74,222,128,0.12);
-            border: 1px solid rgba(74,222,128,0.3);
-            color: var(--accent);
-            font-family: 'DM Mono', monospace;
-            font-size: 9px;
-            padding: 3px 8px;
-            border-radius: 20px;
-            letter-spacing: 0.08em;
-        }
-
-        .card {
-            width: 100%;
-            max-width: 420px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            overflow: hidden;
-        }
-
-        .viewport-wrap {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 1.586 / 1;
-            background: #000;
-            overflow: hidden;
-        }
-        #video, #canvas {
-            width: 100%; height: 100%;
-            object-fit: cover;
-            display: block;
-        }
+        .scanner-container { width: 100%; max-width: 450px; background: var(--card); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.4); margin-bottom: 20px; }
+        .viewport { position: relative; width: 100%; aspect-ratio: 1.58 / 1; background: #000; overflow: hidden; }
+        #video, #canvas { width: 100%; height: 100%; object-fit: cover; }
         #canvas { display: none; }
+        
+        #perm-layer { position: absolute; inset: 0; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; text-align: center; padding: 20px; }
+        .perm-btn { margin-top: 15px; padding: 12px 30px; background: var(--accent2); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: 'Manjari'; }
 
-        .corners { position: absolute; inset: 0; pointer-events: none; }
-        .c {
-            position: absolute;
-            width: 22px; height: 22px;
-            border-color: var(--accent);
-            border-style: solid;
-            border-width: 0;
-            opacity: 0.8;
-        }
-        .c.tl { top: 12px; left: 12px; border-top-width: 2px; border-left-width: 2px; border-radius: 4px 0 0 0; }
-        .c.tr { top: 12px; right: 12px; border-top-width: 2px; border-right-width: 2px; border-radius: 0 4px 0 0; }
-        .c.bl { bottom: 12px; left: 12px; border-bottom-width: 2px; border-left-width: 2px; border-radius: 0 0 0 4px; }
-        .c.br { bottom: 12px; right: 12px; border-bottom-width: 2px; border-right-width: 2px; border-radius: 0 0 4px 0; }
+        .scan-frame { position: absolute; inset: 25px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; pointer-events: none; }
+        .scan-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: scanAnim 3s linear infinite; }
+        @keyframes scanAnim { 0% { top: 0; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
 
-        .scan-bar {
-            position: absolute;
-            left: 12px; right: 12px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            animation: scanMove 2.2s ease-in-out infinite;
-            box-shadow: 0 0 8px var(--accent);
-        }
-        @keyframes scanMove {
-            0%   { top: 12px; }
-            50%  { top: calc(100% - 12px); }
-            100% { top: 12px; }
-        }
-
-        .proc-overlay {
-            position: absolute; inset: 0;
-            background: rgba(14,17,23,0.85);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            gap: 12px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-        .proc-overlay.show { opacity: 1; pointer-events: all; }
-        .ring {
-            width: 44px; height: 44px;
-            border: 3px solid rgba(74,222,128,0.15);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .loader { position: absolute; inset: 0; background: rgba(11, 14, 20, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .loader.active { display: flex; }
+        .spinner { width: 30px; height: 30px; border: 3px solid rgba(59,130,246,0.1); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .proc-text {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px;
-            color: var(--accent);
-            letter-spacing: 0.06em;
-        }
 
-        .body { padding: 16px; }
+        .controls { padding: 16px; }
+        .btn-main { width: 100%; padding: 16px; background: var(--accent2); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Manjari'; transition: 0.2s; }
+        .btn-main:active { opacity: 0.8; }
 
-        .btn-capture {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-            color: white;
-            border: none;
-            border-radius: 14px;
-            font-family: 'Manjari', sans-serif;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            transition: transform 0.12s, box-shadow 0.12s;
-            box-shadow: 0 4px 20px rgba(37,99,235,0.35);
-        }
-        .btn-capture:hover { box-shadow: 0 6px 24px rgba(37,99,235,0.5); }
-        .btn-capture:active { transform: scale(0.97); }
+        .results-section { display: none; animation: fadeIn 0.3s ease; }
+        .results-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        #result-panel { display: none; }
-        #result-panel.show { display: block; }
+        .status-msg { padding: 10px; border-radius: 8px; background: rgba(74,222,128,0.05); color: var(--accent); font-size: 12px; font-weight: 600; margin-bottom: 15px; border-left: 3px solid var(--accent); }
 
-        .fields-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 14px;
-        }
+        .data-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .data-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+        .data-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .data-input { width: 100%; background: transparent; border: none; color: var(--text); font-size: 15px; font-weight: 600; outline: none; font-family: 'Manjari', sans-serif; }
+        .data-textarea { width: 100%; background: transparent; border: none; color: var(--text); font-size: 14px; font-weight: 500; outline: none; font-family: 'Manjari', sans-serif; resize: none; min-height: 50px; line-height: 1.4; }
 
-        .field-row {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: border-color 0.3s;
-        }
-        .field-row.filled { border-color: rgba(74,222,128,0.3); }
-        .field-icon {
-            width: 32px; height: 32px;
-            border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            font-size: 15px;
-        }
-        .fi-name { background: rgba(96,165,250,0.12); }
-        .fi-type { background: rgba(251,146,60,0.12); }
-        .fi-dob  { background: rgba(167,139,250,0.12); }
+        .action-bar { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .btn-sub { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Manjari'; }
+        .btn-sub.share { background: var(--text); color: var(--bg); border: none; }
 
-        .field-inner { flex: 1; min-width: 0; }
-        .field-label {
-            font-family: 'DM Mono', monospace;
-            font-size: 9px;
-            color: var(--muted);
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 3px;
-        }
-        .field-value {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            min-height: 22px;
-        }
-        .field-value.empty {
-            color: rgba(232,234,240,0.2);
-            font-weight: 400;
-            font-size: 13px;
-        }
-        .field-shimmer {
-            height: 16px;
-            border-radius: 6px;
-            background: linear-gradient(90deg,
-                rgba(255,255,255,0.05) 25%,
-                rgba(255,255,255,0.1) 50%,
-                rgba(255,255,255,0.05) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.2s infinite;
-            display: none;
-        }
-        .field-row.loading .field-value { display: none; }
-        .field-row.loading .field-shimmer { display: block; }
-        @keyframes shimmer { to { background-position: -200% 0; } }
-
-        .status-bar {
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 12px;
-            border-radius: 10px;
-            font-size: 12px;
-            margin-bottom: 12px;
-            font-weight: 700;
-            border: 1px solid transparent;
-            min-height: 40px;
-        }
-        .status-bar.idle { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.2); color: var(--accent2); }
-        .status-bar.ok   { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); color: var(--accent); }
-        .status-bar.err  { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); color: var(--red); }
-        .s-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-        .s-dot.blue { background: var(--accent2); }
-        .s-dot.green { background: var(--accent); }
-        .s-dot.red { background: var(--red); }
-
-        .action-row { display: flex; gap: 8px; }
-        .btn {
-            flex: 1; padding: 12px 10px;
-            border: none; border-radius: 12px;
-            font-family: 'Manjari', sans-serif;
-            font-size: 14px; font-weight: 700;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            transition: transform 0.1s, opacity 0.1s;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-retake { background: rgba(255,255,255,0.07); color: var(--muted); border: 1px solid var(--border); }
-        .btn-copy   { background: var(--accent); color: #0e1117; box-shadow: 0 3px 14px rgba(74,222,128,0.3); }
-        .btn-copy:hover { box-shadow: 0 4px 20px rgba(74,222,128,0.45); }
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-        #toast {
-            position: fixed; bottom: 24px; left: 50%;
-            transform: translateX(-50%) translateY(16px);
-            background: var(--accent); color: #0e1117;
-            padding: 10px 22px; border-radius: 30px;
-            font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.22s, transform 0.22s;
-            white-space: nowrap;
-        }
-        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .hidden { display: none !important; }
-        .mt { margin-top: 14px; }
+        #toast { position: fixed; bottom: 30px; background: var(--accent2); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 13px; opacity: 0; transition: 0.3s; pointer-events: none; }
+        #toast.show { opacity: 1; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-            <rect x="2" y="5" width="20" height="14" rx="3"/>
-            <path d="M7 10h4M7 14h2M17 10h-3"/>
-        </svg>
-    </div>
-    <div class="header-text">
-        <h1>ID SCANNER</h1>
-        <p>ഓട്ടോ ഫിൽ – AI powered</p>
-    </div>
-    <div class="ai-badge">CLAUDE VISION</div>
-</div>
-
-<div class="card">
-    <div class="viewport-wrap">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas"></canvas>
-        <div class="corners">
-            <div class="c tl"></div><div class="c tr"></div>
-            <div class="c bl"></div><div class="c br"></div>
-            <div class="scan-bar" id="scan-bar"></div>
+    <header class="app-header">
+        <div class="brand-text">
+            <h1>DATA EXTRACTOR</h1>
+            <p>Professional ID Scanning Tool</p>
         </div>
-        <div class="proc-overlay" id="proc-overlay">
-            <div class="ring"></div>
-            <div class="proc-text">READING ID…</div>
-        </div>
-    </div>
+    </header>
 
-    <div class="body">
-        <button class="btn-capture" id="capture-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-            </svg>
-            സ്കാൻ ചെയ്യൂ
-        </button>
-
-        <div id="result-panel" class="mt">
-            <div class="status-bar idle" id="status-bar">
-                <div class="s-dot blue"></div>
-                <span>AI വിവരങ്ങൾ വായിക്കുന്നു…</span>
+    <div class="scanner-container">
+        <div class="viewport">
+            <div id="perm-layer">
+                <p style="font-size: 14px; color: var(--muted);">ക്യാമറ ആക്സസ് നൽകുക</p>
+                <button class="perm-btn" onclick="initCamera()">START CAMERA</button>
             </div>
 
-            <div class="fields-grid">
-                <div class="field-row loading" id="row-name">
-                    <div class="field-icon fi-name">👤</div>
-                    <div class="field-inner">
-                        <div class="field-label">പേര് / Name</div>
-                        <div class="field-value empty" id="val-name">—</div>
-                        <div class="field-shimmer"></div>
-                    </div>
-                </div>
-                <div class="field-row loading" id="row-type">
-                    <div class="field-icon fi-type">🪪</div>
-                    <div class="field-inner">
-                        <div class="field-label">ഐഡി തരം / ID Type</div>
-                        <div class="field-value empty" id="val-type">—</div>
-                        <div class="field-shimmer"></div>
-                    </div>
-                </div>
-                <div class="field-row loading" id="row-dob">
-                    <div class="field-icon fi-dob">🎂</div>
-                    <div class="field-inner">
-                        <div class="field-label">ജനന തീയതി / Date of Birth</div>
-                        <div class="field-value empty" id="val-dob">—</div>
-                        <div class="field-shimmer"></div>
-                    </div>
-                </div>
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+            
+            <div class="scan-frame" id="scan-frame">
+                <div class="scan-line"></div>
             </div>
 
-            <div class="action-row">
-                <button class="btn btn-retake" id="retake-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <path d="M1 4v6h6M23 20v-6h-6"/>
-                        <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
-                    </svg>
-                    വീണ്ടും
-                </button>
-                <button class="btn btn-copy" id="copy-btn" disabled>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                    </svg>
-                    കോപ്പി ചെയ്യൂ
-                </button>
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p style="margin-top: 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);">EXTRACTING DATA...</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-main" id="capture-btn">സ്കാൻ ചെയ്യുക</button>
+
+            <div id="results" class="results-section">
+                <div class="status-msg">വിവരങ്ങൾ കണ്ടെത്തി. ആവശ്യമെങ്കിൽ മാറ്റം വരുത്താം.</div>
+
+                <div class="data-grid">
+                    <div class="data-card">
+                        <div class="data-label">Full Name</div>
+                        <input type="text" id="out-name" class="data-input">
+                    </div>
+                    <div class="data-card">
+                        <div class="data-label">ID Type & Number</div>
+                        <input type="text" id="out-idnum" class="data-input">
+                    </div>
+                    <div class="data-card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <div class="data-label">DOB</div>
+                            <input type="text" id="out-dob" class="data-input">
+                        </div>
+                        <div>
+                            <div class="data-label">Gender</div>
+                            <input type="text" id="out-gender" class="data-input">
+                        </div>
+                    </div>
+                    <div class="data-card">
+                        <div class="data-label">Address</div>
+                        <textarea id="out-address" class="data-textarea"></textarea>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="btn-sub" onclick="resetApp()">RETAKE</button>
+                    <button class="btn-sub" onclick="copyResults()">COPY</button>
+                    <button class="btn-sub share" onclick="shareResults()">SHARE</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div id="toast">കോപ്പി ചെയ്തു ✓</div>
+    <div id="toast">Copied</div>
 
-<script>
-const video       = document.getElementById('video');
-const canvas      = document.getElementById('canvas');
-const captureBtn  = document.getElementById('capture-btn');
-const retakeBtn   = document.getElementById('retake-btn');
-const copyBtn     = document.getElementById('copy-btn');
-const resultPanel = document.getElementById('result-panel');
-const procOverlay = document.getElementById('proc-overlay');
-const scanBar     = document.getElementById('scan-bar');
-const statusBar   = document.getElementById('status-bar');
-const toast       = document.getElementById('toast');
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const resultsSection = document.getElementById('results');
+        const loader = document.getElementById('loader');
+        const permLayer = document.getElementById('perm-layer');
+        const scanFrame = document.getElementById('scan-frame');
+        
+        const apiKey = ""; 
 
-const fields = {
-    name: { row: document.getElementById('row-name'), val: document.getElementById('val-name') },
-    type: { row: document.getElementById('row-type'), val: document.getElementById('val-type') },
-    dob:  { row: document.getElementById('row-dob'),  val: document.getElementById('val-dob')  },
-};
-
-let extractedData = null;
-
-async function startCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-            audio: false
-        });
-        video.srcObject = stream;
-    } catch (e) {
-        alert('ക്യാമറ ആക്സസ് ചെയ്യാൻ സാധിച്ചില്ല: ' + e.message);
-    }
-}
-
-captureBtn.addEventListener('click', async () => {
-    const ctx = canvas.getContext('2d');
-    canvas.width  = video.videoWidth  || 640;
-    canvas.height = video.videoHeight || 400;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-
-    video.style.display = 'none';
-    canvas.style.display = 'block';
-    scanBar.style.display = 'none';
-    captureBtn.classList.add('hidden');
-    resultPanel.classList.add('show');
-    procOverlay.classList.add('show');
-
-    Object.values(fields).forEach(f => {
-        f.row.classList.add('loading');
-        f.row.classList.remove('filled');
-        f.val.textContent = '—';
-        f.val.className = 'field-value empty';
-    });
-    setStatus('idle', 'AI വിവരങ്ങൾ വായിക്കുന്നു…');
-    copyBtn.disabled = true;
-    extractedData = null;
-
-    await extractWithAI(base64);
-});
-
-async function extractWithAI(base64) {
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 300,
-                messages: [{
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'image',
-                            source: { type: 'base64', media_type: 'image/jpeg', data: base64 }
-                        },
-                        {
-                            type: 'text',
-                            text: `Look at this ID card image and extract exactly 3 fields.
-Return ONLY a raw JSON object with no markdown, no backticks, no explanation:
-{"name":"full name on the card or null","id_type":"one of: Aadhaar Card | Driving License | PAN Card | Voter ID | Passport | Other | null","dob":"date of birth in DD/MM/YYYY format or null"}
-If a field is not visible or unclear, use null.`
-                        }
-                    ]
-                }]
-            })
-        });
-
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message);
-
-        const raw = (data.content?.[0]?.text || '{}').replace(/```json|```/gi, '').trim();
-        const parsed = JSON.parse(raw);
-
-        procOverlay.classList.remove('show');
-
-        await fillField('name', parsed.name,    300);
-        await fillField('type', parsed.id_type, 550);
-        await fillField('dob',  parsed.dob,     800);
-
-        extractedData = parsed;
-        copyBtn.disabled = false;
-        setStatus('ok', 'വിജയകരമായി വായിച്ചു ✓');
-
-    } catch (err) {
-        procOverlay.classList.remove('show');
-        Object.values(fields).forEach(f => {
-            f.row.classList.remove('loading');
-            f.val.textContent = 'കണ്ടെത്തിയില്ല';
-            f.val.className = 'field-value empty';
-        });
-        setStatus('err', 'വായിക്കാൻ സാധിച്ചില്ല. വ്യക്തമായ ഫോട്ടോ ഉപയോഗിക്കുക.');
-        console.error(err);
-    }
-}
-
-function fillField(key, value, delay) {
-    return new Promise(resolve => {
-        setTimeout(() => {
-            const f = fields[key];
-            f.row.classList.remove('loading');
-            if (value && value !== 'null') {
-                f.val.textContent = value;
-                f.val.className = 'field-value';
-                f.row.classList.add('filled');
-            } else {
-                f.val.textContent = 'കണ്ടെത്തിയില്ല';
-                f.val.className = 'field-value empty';
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1920 } } 
+                });
+                video.srcObject = stream;
+                permLayer.style.display = 'none';
+            } catch (err) {
+                alert("Camera access denied.");
             }
-            resolve();
-        }, delay);
-    });
-}
+        }
 
-function setStatus(type, msg) {
-    statusBar.className = 'status-bar ' + type;
-    const dot = type === 'ok' ? 'green' : type === 'err' ? 'red' : 'blue';
-    statusBar.innerHTML = `<div class="s-dot ${dot}"></div><span>${msg}</span>`;
-}
+        captureBtn.addEventListener('click', async () => {
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
 
-retakeBtn.addEventListener('click', () => {
-    canvas.style.display = 'none';
-    video.style.display = 'block';
-    scanBar.style.display = '';
-    captureBtn.classList.remove('hidden');
-    resultPanel.classList.remove('show');
-    copyBtn.disabled = true;
-    extractedData = null;
-});
+            video.style.display = 'none';
+            canvas.style.display = 'block';
+            scanFrame.style.display = 'none';
+            captureBtn.style.display = 'none';
+            loader.classList.add('active');
 
-copyBtn.addEventListener('click', () => {
-    if (!extractedData) return;
-    const text =
-        `Name: ${extractedData.name || '—'}\n` +
-        `ID Type: ${extractedData.id_type || '—'}\n` +
-        `Date of Birth: ${extractedData.dob || '—'}`;
+            await callAI(base64);
+        });
 
-    if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(text).then(showToast).catch(() => fallback(text));
-    } else {
-        fallback(text);
-    }
-});
+        async function callAI(base64) {
+            const prompt = "Extract ID card data. Return JSON: { \"name\": \"\", \"id_type_num\": \"\", \"dob\": \"\", \"gender\": \"\", \"address\": \"\" }";
+            
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64 } }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
 
-function fallback(text) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); showToast(); } catch {}
-    document.body.removeChild(ta);
-}
+                const data = await res.json();
+                const result = JSON.parse(data.candidates[0].content.parts[0].text);
+                showResults(result);
+            } catch (err) {
+                alert("Error processing image.");
+                resetApp();
+            }
+        }
 
-function showToast() {
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2200);
-}
+        function showResults(data) {
+            loader.classList.remove('active');
+            resultsSection.classList.add('active');
+            
+            document.getElementById('out-name').value = data.name || "";
+            document.getElementById('out-idnum').value = data.id_type_num || "";
+            document.getElementById('out-dob').value = data.dob || "";
+            document.getElementById('out-gender').value = data.gender || "";
+            document.getElementById('out-address').value = data.address || "";
+        }
 
-window.onload = startCamera;
-</script>
+        function resetApp() {
+            video.style.display = 'block';
+            canvas.style.display = 'none';
+            scanFrame.style.display = 'block';
+            captureBtn.style.display = 'block';
+            resultsSection.classList.remove('active');
+            loader.classList.remove('active');
+        }
+
+        function getFormattedText() {
+            return `ID DATA REPORT\n\nNAME: ${document.getElementById('out-name').value}\nID: ${document.getElementById('out-idnum').value}\nDOB: ${document.getElementById('out-dob').value}\nGENDER: ${document.getElementById('out-gender').value}\nADDRESS: ${document.getElementById('out-address').value}`;
+        }
+
+        function copyResults() {
+            const text = getFormattedText();
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            showToast("Copied to clipboard");
+        }
+
+        async function shareResults() {
+            const text = getFormattedText();
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'ID Data', text: text });
+                } catch (err) {}
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        window.onload = initCamera;
+    </script>
 </body>
 </html>
