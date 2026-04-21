@@ -36,7 +36,7 @@
         .scan-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: scanAnim 3s linear infinite; }
         @keyframes scanAnim { 0% { top: 0; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
 
-        .loader { position: absolute; inset: 0; background: rgba(11, 14, 20, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        .loader { position: absolute; inset: 0; background: rgba(11, 14, 20, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 10; padding: 20px; text-align: center; }
         .loader.active { display: flex; }
         .spinner { width: 30px; height: 30px; border: 3px solid rgba(59,130,246,0.1); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -61,7 +61,11 @@
         .btn-sub { padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Manjari'; }
         .btn-sub.share { background: var(--text); color: var(--bg); border: none; }
 
-        #toast { position: fixed; bottom: 30px; background: var(--accent2); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 13px; opacity: 0; transition: 0.3s; pointer-events: none; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+        .modal-content { background: var(--surface); border: 1px solid var(--border); padding: 24px; border-radius: 16px; width: 100%; max-width: 320px; text-align: center; }
+        .modal-btn { margin-top: 20px; padding: 12px 24px; background: var(--accent2); color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; }
+
+        #toast { position: fixed; bottom: 30px; background: var(--accent2); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 13px; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 300; }
         #toast.show { opacity: 1; }
     </style>
 </head>
@@ -90,7 +94,7 @@
 
             <div class="loader" id="loader">
                 <div class="spinner"></div>
-                <p style="margin-top: 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);">EXTRACTING DATA...</p>
+                <p style="margin-top: 15px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);" id="loader-text">EXTRACTING DATA...</p>
             </div>
         </div>
 
@@ -109,6 +113,179 @@
                         <div class="data-label">ID Type & Number</div>
                         <input type="text" id="out-idnum" class="data-input">
                     </div>
+                    <div class="data-card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <div class="data-label">DOB</div>
+                            <input type="text" id="out-dob" class="data-input">
+                        </div>
+                        <div>
+                            <div class="data-label">Gender</div>
+                            <input type="text" id="out-gender" class="data-input">
+                        </div>
+                    </div>
+                    <div class="data-card">
+                        <div class="data-label">Address</div>
+                        <textarea id="out-address" class="data-textarea"></textarea>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="btn-sub" onclick="resetApp()">RETAKE</button>
+                    <button class="btn-sub" onclick="copyResults()">COPY</button>
+                    <button class="btn-sub share" onclick="shareResults()">SHARE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="error-modal">
+        <div class="modal-content">
+            <h3 style="color: var(--accent2);">Error</h3>
+            <p id="error-msg" style="font-size: 14px; margin-top: 10px; color: var(--muted);">Something went wrong.</p>
+            <button class="modal-btn" onclick="closeModal()">Try Again</button>
+        </div>
+    </div>
+
+    <div id="toast">Copied</div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const resultsSection = document.getElementById('results');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+        const permLayer = document.getElementById('perm-layer');
+        const scanFrame = document.getElementById('scan-frame');
+        const errorModal = document.getElementById('error-modal');
+        const errorMsg = document.getElementById('error-msg');
+        
+        const apiKey = ""; // API Key will be handled by environment
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1920 } } 
+                });
+                video.srcObject = stream;
+                permLayer.style.display = 'none';
+            } catch (err) {
+                showError("ക്യാമറ ആക്സസ് ചെയ്യാൻ സാധിച്ചില്ല. ബ്രൗസർ സെറ്റിങ്സിൽ പെർമിഷൻ ചെക്ക് ചെയ്യുക.");
+            }
+        }
+
+        captureBtn.addEventListener('click', async () => {
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+
+            video.style.display = 'none';
+            canvas.style.display = 'block';
+            scanFrame.style.display = 'none';
+            captureBtn.style.display = 'none';
+            loader.classList.add('active');
+
+            await callAIWithRetry(base64);
+        });
+
+        async function callAIWithRetry(base64, retries = 5, delay = 1000) {
+            const prompt = "Extract ID card data (Name, ID Type/Number, DOB, Gender, Full Address). Return JSON format only: { \"name\": \"\", \"id_type_num\": \"\", \"dob\": \"\", \"gender\": \"\", \"address\": \"\" }";
+            
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64 } }] }],
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                if (!res.ok) throw new Error("API Connection Failed");
+
+                const data = await res.json();
+                const result = JSON.parse(data.candidates[0].content.parts[0].text);
+                showResults(result);
+            } catch (err) {
+                if (retries > 0) {
+                    loaderText.innerText = `RETRYING (${6 - retries})...`;
+                    setTimeout(() => callAIWithRetry(base64, retries - 1, delay * 2), delay);
+                } else {
+                    showError("വിവരങ്ങൾ ശേഖരിക്കാൻ സാധിച്ചില്ല. ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിച്ച ശേഷം വീണ്ടും ശ്രമിക്കുക.");
+                    resetApp();
+                }
+            }
+        }
+
+        function showResults(data) {
+            loader.classList.remove('active');
+            resultsSection.classList.add('active');
+            
+            document.getElementById('out-name').value = data.name || "N/A";
+            document.getElementById('out-idnum').value = data.id_type_num || "N/A";
+            document.getElementById('out-dob').value = data.dob || "N/A";
+            document.getElementById('out-gender').value = data.gender || "N/A";
+            document.getElementById('out-address').value = data.address || "N/A";
+        }
+
+        function resetApp() {
+            video.style.display = 'block';
+            canvas.style.display = 'none';
+            scanFrame.style.display = 'block';
+            captureBtn.style.display = 'block';
+            resultsSection.classList.remove('active');
+            loader.classList.remove('active');
+            loaderText.innerText = "EXTRACTING DATA...";
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorModal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            errorModal.style.display = 'none';
+        }
+
+        function getFormattedText() {
+            return `ID DATA REPORT\n\nNAME: ${document.getElementById('out-name').value}\nID: ${document.getElementById('out-idnum').value}\nDOB: ${document.getElementById('out-dob').value}\nGENDER: ${document.getElementById('out-gender').value}\nADDRESS: ${document.getElementById('out-address').value}`;
+        }
+
+        function copyResults() {
+            const text = getFormattedText();
+            const dummy = document.createElement("textarea");
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            showToast("Copied to clipboard");
+        }
+
+        async function shareResults() {
+            const text = getFormattedText();
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'ID Data', text: text });
+                } catch (err) {}
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+            }
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        window.onload = initCamera;
+    </script>
+</body>
+</html>                    </div>
                     <div class="data-card" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>
                             <div class="data-label">DOB</div>
