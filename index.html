@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Scanner – Cam Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Manjari:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --bg: #0e1117;
+            --surface: #161b27;
+            --card: #1e2534;
+            --border: rgba(255,255,255,0.08);
+            --accent: #4ade80;
+            --accent2: #60a5fa;
+            --text: #e8eaf0;
+            --muted: rgba(232,234,240,0.45);
+            --red: #f87171;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Manjari', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+        
+        .container { width: 100%; max-width: 420px; }
+        
+        /* Camera UI */
+        .viewport {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1.58 / 1;
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        #video, #canvas { width: 100%; height: 100%; object-fit: cover; }
+        #canvas { display: none; }
+
+        .cam-overlay {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(14,17,23,0.9);
+            text-align: center; padding: 20px;
+            z-index: 10;
+        }
+        .cam-overlay.hidden { display: none; }
+        
+        /* Buttons & Inputs */
+        .btn {
+            width: 100%; padding: 14px; border: none; border-radius: 12px;
+            font-family: 'Manjari', sans-serif; font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary { background: var(--accent2); color: white; box-shadow: 0 4px 15px rgba(96,165,250,0.3); }
+        .btn-capture { background: var(--accent); color: #0e1117; margin-top: 10px; }
+        
+        .result-box {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 15px; padding: 15px; margin-top: 20px;
+            display: none;
+        }
+        .result-box.active { display: block; }
+        
+        .input-group { margin-bottom: 12px; }
+        .label { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+        .input {
+            width: 100%; background: var(--bg); border: 1px solid var(--border);
+            color: white; padding: 10px; border-radius: 8px; font-size: 14px;
+        }
+        
+        .loading-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+            display: none; align-items: center; justify-content: center; color: var(--accent);
+            font-size: 14px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="viewport">
+        <!-- Permission Screen -->
+        <div id="permission-screen" class="cam-overlay">
+            <p style="margin-bottom: 15px;">ക്യാമറ ആക്സസ് ചെയ്യാൻ അനുവാദം നൽകുക</p>
+            <button class="btn btn-primary" onclick="requestPermission()">ക്യാമറ ഓൺ ചെയ്യൂ</button>
+        </div>
+
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        
+        <div id="loading" class="loading-overlay">വായിക്കുന്നു...</div>
+    </div>
+
+    <button id="capture-btn" class="btn btn-capture" style="display: none;">സ്കാൻ ചെയ്യൂ</button>
+
+    <div id="result-area" class="result-box">
+        <div class="input-group">
+            <div class="label">Name</div>
+            <input type="text" id="res-name" class="input">
+        </div>
+        <div class="input-group">
+            <div class="label">Date of Birth</div>
+            <input type="text" id="res-dob" class="input">
+        </div>
+        <button class="btn btn-primary" style="margin-top: 10px;" onclick="location.reload()">വീണ്ടും സ്കാൻ ചെയ്യൂ</button>
+    </div>
+</div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const captureBtn = document.getElementById('capture-btn');
+const permissionScreen = document.getElementById('permission-screen');
+const loading = document.getElementById('loading');
+const resultArea = document.getElementById('result-area');
+
+async function requestPermission() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+        });
+        video.srcObject = stream;
+        permissionScreen.classList.add('hidden');
+        captureBtn.style.display = 'block';
+    } catch (err) {
+        alert("ക്യാമറ പെർമിഷൻ നിഷേധിച്ചു. സെറ്റിങ്സിൽ പോയി അനുവാദം നൽകുക.");
+    }
+}
+
+captureBtn.addEventListener('click', async () => {
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    video.style.display = 'none';
+    canvas.style.display = 'block';
+    captureBtn.style.display = 'none';
+    loading.style.display = 'flex';
+
+    try {
+        const worker = await Tesseract.createWorker('eng');
+        const { data: { text } } = await worker.recognize(canvas);
+        await worker.terminate();
+        
+        extractData(text);
+    } catch (e) {
+        alert("അക്ഷരങ്ങൾ വായിക്കാൻ കഴിഞ്ഞില്ല.");
+        location.reload();
+    }
+});
+
+function extractData(text) {
+    loading.style.display = 'none';
+    resultArea.classList.add('active');
+
+    // Simple RegEx for DOB
+    const dobMatch = text.match(/\d{2}[\/\-]\d{2}[\/\-]\d{4}/);
+    document.getElementById('res-dob').value = dobMatch ? dobMatch[0] : "കണ്ടെത്തിയില്ല";
+
+    // Simple logic for Name (taking the first meaningful line)
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 4);
+    document.getElementById('res-name').value = lines[0] || "കണ്ടെത്തിയില്ല";
+}
+
+// Start asking on load if possible
+window.onload = requestPermission;
+</script>
+
+</body>
+</html>
